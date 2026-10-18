@@ -128,6 +128,7 @@ class TTSEngine:
                     self._set_status("idle")
                 elif cmd == PAUSE:
                     sapi_voice.Pause()
+                    watching = False
                     self._set_status("paused")
                 elif cmd == RESUME:
                     sapi_voice.Resume()
