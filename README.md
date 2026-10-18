@@ -4,6 +4,12 @@ Highlight-to-read for Windows: select text in any app, press a hotkey, hear it r
 
 ## Setup
 
+Double-click **`Install.bat`** — it creates a `venv` folder and installs everything
+from `requirements.txt` into it. Re-running it later just reuses the existing venv and
+updates packages, so it's safe to run again after a `git pull`.
+
+Prefer the command line, or setting up manually?
+
 ```bash
 python -m venv venv
 venv\Scripts\activate
