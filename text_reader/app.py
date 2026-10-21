@@ -63,6 +63,11 @@ class TextReaderApp:
 
         threading.Thread(target=work, daemon=True).start()
 
+    def refresh_voices(self):
+        self.voices = list_voices()
+        if self.root:
+            self.root.after(0, self.gui.rebuild_voices)
+
     def toggle_pause(self):
         if self.engine.status == "speaking":
             self.engine.pause()

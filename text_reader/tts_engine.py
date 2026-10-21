@@ -4,6 +4,9 @@ import threading
 import pythoncom
 import win32com.client
 
+from .piper_backend import PiperBackend
+from .voice_download import installed_voices
+
 SPEAK = "speak"
 STOP = "stop"
 PAUSE = "pause"
@@ -46,9 +49,10 @@ def list_voices():
     """Returns [(description, voice_id), ...] for the installed SAPI voices."""
     pythoncom.CoInitialize()
     try:
-        return [(t.GetDescription(), t.Id) for t in _all_voice_tokens()]
+        sapi = [(t.GetDescription(), t.Id) for t in _all_voice_tokens()]
     finally:
         pythoncom.CoUninitialize()
+    return installed_voices() + sapi
 
 
 class TTSEngine:
@@ -99,44 +103,73 @@ class TTSEngine:
     def _run(self):
         pythoncom.CoInitialize()
         sapi_voice = win32com.client.Dispatch("SAPI.SpVoice")
+        piper = PiperBackend()
         watching = False
+        using_piper = False
+        rate = 0
         try:
             while True:
                 try:
                     cmd, payload = self._queue.get(timeout=0.15)
                 except queue.Empty:
-                    if watching and sapi_voice.Status.RunningState == 1:
-                        watching = False
-                        self._set_status("idle")
+                    if watching:
+                        finished = (not piper.active) if using_piper else sapi_voice.Status.RunningState == 1
+                        if finished:
+                            watching = False
+                            self._set_status("idle")
                     continue
 
                 if cmd == SHUTDOWN:
+                    piper.stop()
                     sapi_voice.Speak("", SVSF_PURGE_BEFORE_SPEAK)
                     break
                 elif cmd == SPEAK:
+                    piper.stop()
                     sapi_voice.Speak("", SVSF_PURGE_BEFORE_SPEAK)
                     if payload.get("rate") is not None:
-                        sapi_voice.Rate = payload["rate"]
-                    if payload.get("voice_id"):
-                        self._select_voice(sapi_voice, payload["voice_id"])
-                    sapi_voice.Speak(payload["text"], SVSF_ASYNC)
+                        rate = payload["rate"]
+                    voice_id = payload.get("voice_id") or ""
+                    using_piper = voice_id.startswith("piper:")
+                    if using_piper:
+                        try:
+                            piper.speak(payload["text"], voice_id[len("piper:"):], rate)
+                        except Exception:
+                            watching = False
+                            self._set_status("idle")
+                            continue
+                    else:
+                        sapi_voice.Rate = rate
+                        if voice_id:
+                            self._select_voice(sapi_voice, voice_id)
+                        sapi_voice.Speak(payload["text"], SVSF_ASYNC)
                     watching = True
                     self._set_status("speaking")
                 elif cmd == STOP:
+                    piper.stop()
                     sapi_voice.Speak("", SVSF_PURGE_BEFORE_SPEAK)
                     watching = False
                     self._set_status("idle")
                 elif cmd == PAUSE:
-                    sapi_voice.Pause()
+                    if using_piper:
+                        piper.pause()
+                    else:
+                        sapi_voice.Pause()
                     watching = False
                     self._set_status("paused")
                 elif cmd == RESUME:
-                    sapi_voice.Resume()
+                    if using_piper:
+                        piper.resume()
+                    else:
+                        sapi_voice.Resume()
                     watching = True
                     self._set_status("speaking")
                 elif cmd == SET_RATE:
+                    rate = payload
                     sapi_voice.Rate = payload
                 elif cmd == SET_VOICE:
-                    self._select_voice(sapi_voice, payload)
+                    if str(payload).startswith("piper:"):
+                        piper.preload(payload[len("piper:"):])
+                    else:
+                        self._select_voice(sapi_voice, payload)
         finally:
             pythoncom.CoUninitialize()

@@ -1,6 +1,9 @@
+import threading
+
 import customtkinter as ctk
 import keyboard
 
+from . import voice_download
 from .tray_icon import RATE_PRESETS
 
 MODIFIER_NAMES = {"ctrl", "alt", "shift", "windows"}
@@ -27,8 +30,8 @@ class SettingsWindow(ctk.CTk):
         self._message_revert_id = None
 
         self.title("Text Reader")
-        self.geometry("420x540")
-        self.minsize(380, 500)
+        self.geometry("420x620")
+        self.minsize(380, 580)
         self.protocol("WM_DELETE_WINDOW", self.app.full_shutdown)
         self.bind("<Unmap>", self._on_unmap)
 
@@ -55,6 +58,19 @@ class SettingsWindow(ctk.CTk):
             voice_frame, values=list(self._voice_by_label.keys()) or ["(no voices found)"], command=self._on_voice_change
         )
         self.voice_menu.pack(fill="x", pady=(4, 0))
+
+        more_frame = ctk.CTkFrame(self, fg_color="transparent")
+        more_frame.pack(fill="x", **pad)
+        self.download_label = ctk.CTkLabel(
+            more_frame, text="Get more natural voices (offline, ~60 MB each)", anchor="w", text_color="gray60"
+        )
+        self.download_label.pack(fill="x")
+        more_row = ctk.CTkFrame(more_frame, fg_color="transparent")
+        more_row.pack(fill="x", pady=(4, 0))
+        self.catalog_menu = ctk.CTkOptionMenu(more_row, values=[name for name, _, _ in voice_download.CATALOG])
+        self.catalog_menu.pack(side="left", fill="x", expand=True)
+        self.download_button = ctk.CTkButton(more_row, text="Download", width=90, command=self._on_download)
+        self.download_button.pack(side="right", padx=(8, 0))
 
         speed_frame = ctk.CTkFrame(self, fg_color="transparent")
         speed_frame.pack(fill="x", **pad)
@@ -127,6 +143,45 @@ class SettingsWindow(ctk.CTk):
         if self._message_revert_id is not None:
             self.after_cancel(self._message_revert_id)
             self._message_revert_id = None
+
+    def rebuild_voices(self):
+        voices = self.app.voices
+        self._voice_by_label = {desc: vid for desc, vid in voices}
+        self._label_by_voice = {vid: desc for desc, vid in voices}
+        self.voice_menu.configure(values=list(self._voice_by_label) or ["(no voices found)"])
+        self.refresh_from_config()
+
+    def _on_download(self):
+        choice = self.catalog_menu.get()
+        entry = next((e for e in voice_download.CATALOG if e[0] == choice), None)
+        if not entry:
+            return
+        _, stem, repo_path = entry
+        if voice_download.is_installed(stem):
+            self.download_label.configure(text=f"{choice} is already installed", text_color="gray60")
+            return
+        self.download_button.configure(state="disabled")
+
+        def progress(done, total):
+            if total:
+                self.after(0, self.download_label.configure, {"text": f"Downloading {choice}... {done * 100 // total}%"})
+
+        def work():
+            try:
+                voice_download.download(stem, repo_path, progress)
+            except Exception as error:
+                self.after(0, self._download_finished, f"Download failed: {error}", False)
+                return
+            self.after(0, self._download_finished, f"{choice} installed. Pick it in Voice.", True)
+
+        self.download_label.configure(text=f"Downloading {choice}...", text_color="gray60")
+        threading.Thread(target=work, daemon=True).start()
+
+    def _download_finished(self, message, ok):
+        self.download_button.configure(state="normal")
+        self.download_label.configure(text=message, text_color="gray60" if ok else "#e05555")
+        if ok:
+            self.app.refresh_voices()
 
     def refresh_from_config(self):
         cfg = self.app.config

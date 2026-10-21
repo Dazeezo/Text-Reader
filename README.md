@@ -57,22 +57,19 @@ SAPI voices are installed on your PC — Settings > Time & Language > Speech let
 
 ## Getting better voices
 
-By default Windows only ships two robotic "Desktop" voices (David, Zira). For much more
-natural-sounding, free, on-device voices — the closest local equivalent to the quality
-of Claude's own read-aloud:
+Windows' built-in voices (David, Mark, Zira) are the old, robotic kind. (Windows' newer
+"Natural" voices only work inside Narrator and Edge, not in other apps, so they can't be
+used here.) For much more natural speech, the app supports free, offline neural voices
+from [Piper](https://github.com/OHF-Voice/piper1-gpl):
 
-1. Open Settings > Time & Language > Speech > Manage voices > Add voices (on some
-   builds: Settings > Accessibility > Narrator > Natural voices).
-2. Download any of the "Natural" voices — e.g. Microsoft Aria, Guy, Ava, Andrew, Jenny.
-   No account or payment needed.
-3. Restart Text Reader. The new voice appears automatically in the tray's **Voice**
-   submenu — no update needed.
+1. In the settings window, pick a voice under **Get more natural voices** (e.g. Lessac,
+   Amy, Alan) and click **Download** (~60 MB each, one time, needs internet only for
+   the download).
+2. Choose it in the **Voice** dropdown (it appears as "Piper: ..."), or from the tray's
+   Voice submenu.
 
-The app reads voices from Windows' OneCore voice category (the same one Narrator uses),
-so it also picks up voices like "Mark" that are already installed but hidden from the
-older legacy voice list. You may see the same-sounding voice listed more than once
-(a legacy "Desktop" version and a OneCore version) — that's expected, just pick whichever
-sounds best.
+Piper voices run entirely on your PC. Speed, pause/resume, and stop all work with them.
+Voice files are stored in `%APPDATA%\TextReaderoices`.
 
 ## Notes / limitations
 

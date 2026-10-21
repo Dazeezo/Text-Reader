@@ -40,7 +40,7 @@ def build_icon(app):
 
         return pystray.MenuItem(label, action, checked=checked, radio=True)
 
-    voice_menu = pystray.Menu(*[voice_item(desc, vid) for desc, vid in app.voices])
+    voice_menu = pystray.Menu(lambda: (voice_item(desc, vid) for desc, vid in app.voices))
     rate_menu = pystray.Menu(*[rate_item(label, rate) for label, rate in RATE_PRESETS])
 
     menu = pystray.Menu(
